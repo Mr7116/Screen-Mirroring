@@ -169,10 +169,37 @@
       paint(); dirty = false;
       if (old && old !== frame && typeof old.close === 'function') old.close();
     }, (ev) => { if (ev.type === 'decode-error') console.warn(ev.message); });
-    api.onPacket((pkt) => (pkt.audio ? playIosSound(pkt) : player.pushPacket(pkt.data)));
+    // The computer can't change the iPhone's own volume, so these buttons set the sound level here.
+    ['volumeUp', 'volumeDown'].forEach((a) => btn(a).removeAttribute('data-android'));
+    api.onPacket((pkt) => {
+      if (pkt.audio) return playIosSound(pkt);
+      if (pkt.orientation) turnLikeIphone(pkt.orientation);
+      player.pushPacket(pkt.data);
+    });
     api.onMirrorEvent((ev) => {
       if (ev.type === 'ended') { setStatus(ev.message || 'The iPhone stopped sharing.', true); gotFirst = false; }
     });
+  }
+
+  // The iPhone always sends its picture upright; turn it when the iPhone is held sideways.
+  // CGImagePropertyOrientation → quarter turns clockwise: up 0, right 1, down 2, left 3.
+  let iosOrientation = 0;
+  function turnLikeIphone(o) {
+    if (o === iosOrientation) return; // only when the iPhone turns, so the Rotate button still works
+    iosOrientation = o;
+    const turns = { 1: 0, 6: 1, 3: 2, 8: 3 }[o];
+    if (turns === undefined || turns === rotation) return;
+    rotation = turns;
+    layout(); fitWindow(); dirty = true;
+    wb.draw();
+  }
+
+  // Sound level for the iPhone sound on this computer: 0–100 %, 10 % steps.
+  let iosVolume = 1;
+  function changeIosVolume(step) {
+    iosVolume = Math.round(Math.min(1, Math.max(0, iosVolume + step)) * 10) / 10;
+    if (iosAudio) iosAudio.out.gain.value = iosVolume;
+    toast(`Sound ${Math.round(iosVolume * 100)}%`);
   }
 
   // iPhone sound: 16-bit PCM chunks played back to back, about 80 ms behind, never more than 400 ms.
@@ -184,6 +211,7 @@
       iosAudio = new AudioContext();
       const dest = iosAudio.createMediaStreamDestination();
       iosAudio.out = iosAudio.createGain();
+      iosAudio.out.gain.value = iosVolume;
       iosAudio.out.connect(iosAudio.destination);
       iosAudio.out.connect(dest);
       remoteAudio = { srcObject: dest.stream }; // lets recording include the iPhone sound
@@ -630,8 +658,8 @@
     folder: () => api.openFolder(''),
     simpleMode: toggleSimple,
     boss: () => api.boss(),
-    volumeUp: () => sendKey('volumeUp'),
-    volumeDown: () => sendKey('volumeDown'),
+    volumeUp: () => (kind === 'ios' ? changeIosVolume(0.1) : sendKey('volumeUp')),
+    volumeDown: () => (kind === 'ios' ? changeIosVolume(-0.1) : sendKey('volumeDown')),
     // Phone display off/on while mirroring continues (SendScreenEvent 0x10021070 → 2-byte message).
     screenOff: () => {
       screenIsOff = !screenIsOff;

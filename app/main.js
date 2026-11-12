@@ -9,6 +9,7 @@ const { LanServer, lanAddresses, codeToIp } = require('./src/lan');
 const { HelperSession } = require('./src/helper');
 const { IosServer } = require('./src/ios');
 const { UsbMux } = require('./src/usbmux');
+const { IosDialer } = require('./src/iosdial');
 
 // ---- --screenshot <file.png> -------------------------------------------------------------
 const argv = process.argv.slice(1);
@@ -24,7 +25,7 @@ if (screenshotPath) {
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 }
 
-let settings, adb, lan, ios, usbmux;
+let settings, adb, lan, ios, usbmux, iosDialer;
 const iosSenders = new Map(); // id -> { name, width, height }
 let mainWin = null;
 const mirrors = new Map(); // webContents.id -> { win, kind, serial, senderId, stream, title }
@@ -458,6 +459,7 @@ app.whenReady().then(async () => {
   ios = new IosServer({
     checkCode: (c) => lan.checkCode(c),
     events: {
+      onRegister(ip) { iosDialer.register(ip); },
       onJoin(id, info) {
         iosSenders.set(id, info);
         toast(`${info.name} is sharing its screen`, 'ok');
@@ -479,6 +481,7 @@ app.whenReady().then(async () => {
     }
   });
   usbmux = new UsbMux({ onSocket: (sock) => ios.adopt(sock) });
+  iosDialer = new IosDialer({ onSocket: (sock) => ios.adopt(sock) });
   registerIpc();
   if (!screenshotPath) {
     await lan.start(settings.get('lanPort'));
@@ -495,6 +498,7 @@ app.on('before-quit', () => {
   if (lan) lan.stop();
   if (ios) ios.stop();
   if (usbmux) usbmux.stop();
+  if (iosDialer) iosDialer.stop();
 });
 
 function sendIosList() {

@@ -16,7 +16,8 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var connection: NWConnection?   // the link in use (Wi-Fi or USB), chosen by whichever is ready first
     private var wifi: NWConnection?
     private var usbListener: NWListener?
-    /// MirrorDesk reaches this port through the USB cable (usbmuxd), see the desktop app's src/usbmux.js.
+    /// MirrorDesk connects to this port through the USB cable (src/usbmux.js) or over Wi-Fi after the
+    /// app registered with the screen code (src/iosdial.js). It closes as soon as one link is in use.
     private static let usbPort: NWEndpoint.Port = 15488
     private var session: VTCompressionSession?
     private var sessionSize = (width: Int32(0), height: Int32(0))
@@ -24,6 +25,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var lastFrame = CMTime.invalid
     private var queuedBytes = 0
     private var frameCount = 0
+    private var orientation: UInt32 = 0     // CGImagePropertyOrientation of the screen picture (0 = unknown)
 
     // MARK: broadcast life
 
@@ -41,7 +43,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
             } else {
                 self.queue.asyncAfter(deadline: .now() + 15) { [weak self] in
                     guard let self = self, self.connection == nil else { return }
-                    self.stop("No USB connection, and no screen code reached the broadcast. Plug in the USB cable, or type the code in MirrorDesk Sender.")
+                    self.stop("MirrorDesk didn't connect. Plug in the USB cable, or open MirrorDesk Sender on the same Wi-Fi as the computer and check the screen code.")
                 }
             }
         }
@@ -63,8 +65,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
     // MARK: links (USB and Wi-Fi)
 
     private func startUsbListener() {
-        let params = NWParameters.tcp
-        params.requiredInterfaceType = .loopback // usbmuxd delivers cable connections on the phone's loopback
+        let params = NWParameters.tcp // all interfaces: loopback for the USB cable (usbmuxd), Wi-Fi for MirrorDesk
         guard let listener = try? NWListener(using: params, on: Self.usbPort) else { return }
         listener.newConnectionHandler = { [weak self] conn in self?.offer(conn, wifiAddress: nil) }
         listener.start(queue: queue)
@@ -79,6 +80,8 @@ final class SampleHandler: RPBroadcastSampleHandler {
             case .ready:
                 if self.connection == nil {
                     self.connection = conn
+                    self.usbListener?.cancel() // one link only: nobody else can connect from now on
+                    self.usbListener = nil
                     self.sendHello()
                 } else if self.connection !== conn {
                     conn.cancel()
@@ -164,6 +167,9 @@ final class SampleHandler: RPBroadcastSampleHandler {
         let time = CMSampleBufferGetPresentationTimeStamp(sample)
         if lastFrame.isValid, CMTimeGetSeconds(CMTimeSubtract(time, lastFrame)) < 1.0 / frameRate - 0.004 { return }
         lastFrame = time
+        if let o = CMGetAttachment(sample, key: RPVideoSampleOrientationKey as CFString, attachmentModeOut: nil) as? NSNumber {
+            orientation = o.uint32Value // the picture stays upright-portrait; the computer turns it
+        }
 
         let w = Int32(CVPixelBufferGetWidth(pixels)), h = Int32(CVPixelBufferGetHeight(pixels))
         if session == nil || sessionSize != (w, h) { makeSession(width: w, height: h) }
@@ -253,7 +259,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
         let flags: UInt32 = isKey ? 0x4000_0000 : 0
         header.withUnsafeMutableBytes { raw in
             raw.storeBytes(of: flags.bigEndian, toByteOffset: 0, as: UInt32.self)
-            raw.storeBytes(of: UInt32(0).bigEndian, toByteOffset: 4, as: UInt32.self)
+            raw.storeBytes(of: self.orientation.bigEndian, toByteOffset: 4, as: UInt32.self) // see src/ios.js
             raw.storeBytes(of: UInt32(payload.count).bigEndian, toByteOffset: 8, as: UInt32.self)
         }
         let packet = header + payload

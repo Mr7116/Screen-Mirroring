@@ -73,6 +73,16 @@ class IosServer {
           let hello;
           try { hello = JSON.parse(buf.subarray(0, nl).toString('utf8')); } catch (_) { return fail('Bad hello'); }
           buf = buf.subarray(nl + 1);
+          if (hello.type === 'register') {
+            // The iPhone app (not the broadcast) proves it knows the code; the computer then connects
+            // to the broadcast on that iPhone (src/iosdial.js).
+            clearTimeout(timer);
+            if (!this.checkCode(hello.code)) return fail('Wrong screen code');
+            const ip = String(sock.remoteAddress || '').replace(/^::ffff:/, '');
+            if (this.events.onRegister) this.events.onRegister(ip, String(hello.name || 'iPhone').slice(0, 40));
+            sock.end(JSON.stringify({ type: 'registered' }) + '\n');
+            return;
+          }
           if (hello.type !== 'hello' || (!trusted && !this.checkCode(hello.code))) return fail('Wrong screen code');
           clearTimeout(timer);
           id = 'ios-' + crypto.randomBytes(4).toString('hex');
@@ -103,7 +113,8 @@ class IosServer {
           // Sound: 16-bit little-endian interleaved PCM; aux = (sample rate << 8) | channels.
           this.events.onPacket(id, { audio: true, rate: aux >>> 8, channels: aux & 0xff, data });
         } else if (data.length) {
-          this.events.onPacket(id, { config: (flags & 0x80000000) !== 0, key: (flags & 0x40000000) !== 0, data });
+          // Picture: aux low byte = CGImagePropertyOrientation (1 up, 3 down, 6 right, 8 left; 0 = unknown).
+          this.events.onPacket(id, { config: (flags & 0x80000000) !== 0, key: (flags & 0x40000000) !== 0, orientation: aux & 0xff, data });
         }
       }
     });
