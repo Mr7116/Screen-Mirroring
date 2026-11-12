@@ -553,6 +553,11 @@
     layout(); fitWindow(); dirty = true;
     wb.draw();
   }
+  function rotateLeft() {
+    rotation = (rotation + 3) % 4;
+    layout(); fitWindow(); dirty = true;
+    wb.draw();
+  }
 
   async function toggleFullscreen() {
     const on = await api.fullscreen();
@@ -653,6 +658,7 @@
     whiteboard: () => setWhiteboard(!wb.active),
     keyboard: toggleKeyboard,
     rotate,
+    rotateLeft,
     topmost: toggleTopmost,
     files: toggleFiles,
     folder: () => api.openFolder(''),
