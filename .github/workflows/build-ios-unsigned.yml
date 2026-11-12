@@ -4,6 +4,7 @@ name: Build iOS (unsigned IPA)
 
 on:
   workflow_dispatch:
+  workflow_call: # used by release.yml
   push:
     paths:
       - "app/ios-sender/**"
