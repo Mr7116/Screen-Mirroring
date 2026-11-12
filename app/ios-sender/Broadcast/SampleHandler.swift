@@ -13,7 +13,11 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private let maxQueuedBytes = 2_000_000 // drop non-key frames when Wi-Fi falls behind (estimated)
 
     private let queue = DispatchQueue(label: "mirrordesk.sender")
-    private var connection: NWConnection?
+    private var connection: NWConnection?   // the link in use (Wi-Fi or USB), chosen by whichever is ready first
+    private var wifi: NWConnection?
+    private var usbListener: NWListener?
+    /// MirrorDesk reaches this port through the USB cable (usbmuxd), see the desktop app's src/usbmux.js.
+    private static let usbPort: NWEndpoint.Port = 15488
     private var session: VTCompressionSession?
     private var sessionSize = (width: Int32(0), height: Int32(0))
     private var welcomed = false
@@ -24,23 +28,18 @@ final class SampleHandler: RPBroadcastSampleHandler {
     // MARK: broadcast life
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
-        guard let ip = ScreenCode.ipAddress(from: SharedSettings.code),
-              let port = NWEndpoint.Port(rawValue: UInt16(SharedSettings.port)) else {
-            stop("Open MirrorDesk Sender and type the screen code shown on the computer.")
-            return
-        }
-        let conn = NWConnection(host: NWEndpoint.Host(ip), port: port, using: .tcp)
-        connection = conn
-        conn.stateUpdateHandler = { [weak self] state in
-            guard let self = self else { return }
-            switch state {
-            case .ready: self.sendHello()
-            case .failed, .waiting:
-                self.stop("Can't reach the computer at \(ip). Is MirrorDesk open and on the same Wi-Fi?")
-            default: break
+        queue.async {
+            // USB: wait for MirrorDesk to connect through the cable. Wi-Fi: dial the computer if a code was typed.
+            self.startUsbListener()
+            if let ip = ScreenCode.ipAddress(from: SharedSettings.code),
+               let port = NWEndpoint.Port(rawValue: UInt16(SharedSettings.port)) {
+                let conn = NWConnection(host: NWEndpoint.Host(ip), port: port, using: .tcp)
+                self.wifi = conn
+                self.offer(conn, wifiAddress: ip)
+            } else if self.usbListener == nil {
+                self.stop("Open MirrorDesk Sender and type the screen code shown on the computer.")
             }
         }
-        conn.start(queue: queue)
     }
 
     override func broadcastFinished() {
@@ -49,6 +48,51 @@ final class SampleHandler: RPBroadcastSampleHandler {
             session = nil
             connection?.cancel()
             connection = nil
+            wifi?.cancel()
+            wifi = nil
+            usbListener?.cancel()
+            usbListener = nil
+        }
+    }
+
+    // MARK: links (USB and Wi-Fi)
+
+    private func startUsbListener() {
+        let params = NWParameters.tcp
+        params.requiredInterfaceType = .loopback // usbmuxd delivers cable connections on the phone's loopback
+        guard let listener = try? NWListener(using: params, on: Self.usbPort) else { return }
+        listener.newConnectionHandler = { [weak self] conn in self?.offer(conn, wifiAddress: nil) }
+        listener.start(queue: queue)
+        usbListener = listener
+    }
+
+    /// Uses the first link that becomes ready; later ones are closed.
+    private func offer(_ conn: NWConnection, wifiAddress: String?) {
+        conn.stateUpdateHandler = { [weak self] state in
+            guard let self = self else { return }
+            switch state {
+            case .ready:
+                if self.connection == nil {
+                    self.connection = conn
+                    self.sendHello()
+                } else if self.connection !== conn {
+                    conn.cancel()
+                }
+            case .failed, .waiting:
+                guard self.connection !== conn else { return } // the link in use reports its end in watchForClose
+                conn.cancel()
+                if let ip = wifiAddress { self.wifiFailed(ip) }
+            default: break
+            }
+        }
+        conn.start(queue: queue)
+    }
+
+    /// Wi-Fi failed: give the USB cable a few seconds before giving up.
+    private func wifiFailed(_ ip: String) {
+        queue.asyncAfter(deadline: .now() + 10) { [weak self] in
+            guard let self = self, self.connection == nil else { return }
+            self.stop("Can't reach the computer at \(ip). Is MirrorDesk open and on the same Wi-Fi, or is the USB cable plugged in?")
         }
     }
 

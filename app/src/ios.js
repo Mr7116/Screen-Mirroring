@@ -47,7 +47,13 @@ class IosServer {
     if (c) c.sock.destroy();
   }
 
-  onSocket(sock) {
+  /** A connection that came through the USB cable (src/usbmux.js): no screen code needed. */
+  adopt(sock) {
+    this.onSocket(sock, true);
+    sock.resume();
+  }
+
+  onSocket(sock, trusted = false) {
     sock.setNoDelay(true);
     let buf = Buffer.alloc(0);
     let id = null;
@@ -67,7 +73,7 @@ class IosServer {
           let hello;
           try { hello = JSON.parse(buf.subarray(0, nl).toString('utf8')); } catch (_) { return fail('Bad hello'); }
           buf = buf.subarray(nl + 1);
-          if (hello.type !== 'hello' || !this.checkCode(hello.code)) return fail('Wrong screen code');
+          if (hello.type !== 'hello' || (!trusted && !this.checkCode(hello.code))) return fail('Wrong screen code');
           clearTimeout(timer);
           id = 'ios-' + crypto.randomBytes(4).toString('hex');
           const info = {
