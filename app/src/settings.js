@@ -27,6 +27,7 @@ function defaults(app) {
   return {
     theme: 'light',            // UIStyle 0 = Light
     topmost: false,            // Main/Topmost
+    showFps: false,            // frame rate badge on the iPhone picture (this rebuild)
     closeAction: 'quit',
     language: 'en',
     adbPath: '',

@@ -6,10 +6,10 @@ import UIKit
 /// Broadcast extension: takes the screen from ReplayKit, compresses it to H.264 with the hardware
 /// encoder and sends it to MirrorDesk (protocol in the desktop app's src/ios.js).
 final class SampleHandler: RPBroadcastSampleHandler {
-    // Stream settings follow the original's Android defaults (MECHANICS.md):
-    private let bitRate = 7_581_600        // AppSettings DirectABitRate
-    private let frameRate: Double = 30     // AppSettings DirectFrameRate
-    private let keyFrameEvery = 60         // one key frame every 2 s (estimated)
+    // Stream settings (60 fps cap; ReplayKit may deliver fewer frames than this):
+    private let bitRate = 12_000_000       // raised from the original's 7_581_600 for twice the frames
+    private let frameRate: Double = 60     // was 30 (AppSettings DirectFrameRate)
+    private let keyFrameEvery = 120        // one key frame every 2 s
     private let maxQueuedBytes = 2_000_000 // drop non-key frames when Wi-Fi falls behind (estimated)
 
     private let queue = DispatchQueue(label: "mirrordesk.sender")

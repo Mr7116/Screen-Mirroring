@@ -165,10 +165,12 @@
     setStatus('Waiting for the iPhone picture…<br><span style="opacity:.7">On the iPhone, tap Start Broadcast.</span>');
     player = new H264Player((frame) => {
       const old = src;
+      iosFrames++;
       setSource(frame, frame.displayWidth, frame.displayHeight);
       paint(); dirty = false;
       if (old && old !== frame && typeof old.close === 'function') old.close();
     }, (ev) => { if (ev.type === 'decode-error') console.warn(ev.message); });
+    setInterval(() => { $('#fpsBadge').textContent = `${iosFrames} fps`; iosFrames = 0; }, 1000);
     // The computer can't change the iPhone's own volume, so these buttons set the sound level here.
     ['volumeUp', 'volumeDown'].forEach((a) => btn(a).removeAttribute('data-android'));
     api.onPacket((pkt) => {
@@ -179,6 +181,18 @@
     api.onMirrorEvent((ev) => {
       if (ev.type === 'ended') { setStatus(ev.message || 'The iPhone stopped sharing.', true); gotFirst = false; }
     });
+  }
+
+  // Frame rate of the iPhone picture: frames shown in the last second. On/off is remembered (showFps).
+  let iosFrames = 0;
+  function showFps(on) {
+    $('#fpsBadge').hidden = !on;
+    btn('fps').classList.toggle('on', on);
+  }
+  function toggleFps() {
+    const on = $('#fpsBadge').hidden;
+    showFps(on);
+    api.setSettings({ showFps: on });
   }
 
   // The iPhone always sends its picture upright; turn it when the iPhone is held sideways.
@@ -659,6 +673,7 @@
     keyboard: toggleKeyboard,
     rotate,
     rotateLeft,
+    fps: toggleFps,
     topmost: toggleTopmost,
     files: toggleFiles,
     folder: () => api.openFolder(''),
@@ -748,6 +763,8 @@
     else if (kind === 'selftest') startSelftest();
     else if (kind === 'ios') startIos();
     else startDemo();
+    if (kind !== 'ios') btn('fps').remove(); // frame rate is measured for the iPhone picture only
+    else if (settings.showFps) showFps(true);
     $('#stage').focus();
     if (q.get('sample') === 'wb') {
       // Developer check: show the whiteboard with a few marks.

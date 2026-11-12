@@ -39,6 +39,8 @@ body.fs.toolbar-peek .toolbar { transform: none; }
 
 .rec-badge { position: absolute; top: 18px; left: 18px; background: rgba(0,0,0,.7); border-radius: 14px; padding: 5px 12px; display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
 .rec-badge[hidden] { display: none; }
+.fps-badge { position: absolute; top: 18px; right: 18px; background: rgba(0,0,0,.7); border-radius: 14px; padding: 5px 12px; font-variant-numeric: tabular-nums; }
+.fps-badge[hidden] { display: none; }
 .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff4d55; animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: .2; } }
 
