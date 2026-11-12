@@ -36,6 +36,10 @@ targets:
     type: app-extension
     platform: iOS
     sources: [Broadcast, Shared]
+    settings:
+      base:
+        # Must start with the app's bundle id (bundleIdPrefix + ".MirrorSender") or ValidateEmbeddedBinary fails.
+        PRODUCT_BUNDLE_IDENTIFIER: com.7116.mirrordesk.MirrorSender.Broadcast
     info:
       path: Broadcast/Info.plist
       properties:
