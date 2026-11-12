@@ -169,10 +169,42 @@
       paint(); dirty = false;
       if (old && old !== frame && typeof old.close === 'function') old.close();
     }, (ev) => { if (ev.type === 'decode-error') console.warn(ev.message); });
-    api.onPacket((pkt) => player.pushPacket(pkt.data));
+    api.onPacket((pkt) => (pkt.audio ? playIosSound(pkt) : player.pushPacket(pkt.data)));
     api.onMirrorEvent((ev) => {
       if (ev.type === 'ended') { setStatus(ev.message || 'The iPhone stopped sharing.', true); gotFirst = false; }
     });
+  }
+
+  // iPhone sound: 16-bit PCM chunks played back to back, about 80 ms behind, never more than 400 ms.
+  let iosAudio = null, iosAudioAt = 0;
+  function playIosSound(pkt) {
+    const ch = pkt.channels, rate = pkt.rate;
+    if (!ch || !rate) return;
+    if (!iosAudio) {
+      iosAudio = new AudioContext();
+      const dest = iosAudio.createMediaStreamDestination();
+      iosAudio.out = iosAudio.createGain();
+      iosAudio.out.connect(iosAudio.destination);
+      iosAudio.out.connect(dest);
+      remoteAudio = { srcObject: dest.stream }; // lets recording include the iPhone sound
+    }
+    if (iosAudio.state === 'suspended') iosAudio.resume().catch(() => {});
+    const bytes = pkt.data;
+    const view16 = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const frames = Math.floor(bytes.byteLength / 2 / ch);
+    if (!frames) return;
+    const buf = iosAudio.createBuffer(ch, frames, rate);
+    for (let c = 0; c < ch; c++) {
+      const out = buf.getChannelData(c);
+      for (let f = 0; f < frames; f++) out[f] = view16.getInt16((f * ch + c) * 2, true) / 32768;
+    }
+    const now = iosAudio.currentTime;
+    if (iosAudioAt < now + 0.02 || iosAudioAt > now + 0.4) iosAudioAt = now + 0.08;
+    const node = iosAudio.createBufferSource();
+    node.buffer = buf;
+    node.connect(iosAudio.out);
+    node.start(iosAudioAt);
+    iosAudioAt += buf.duration;
   }
 
   function startDemo() {

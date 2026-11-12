@@ -88,17 +88,21 @@ class IosServer {
         if (!need) {
           if (buf.length < 12) return;
           const flags = buf.readUInt32BE(0);
+          const aux = buf.readUInt32BE(4);
           const size = buf.readUInt32BE(8);
           if (size > MAX_PACKET) return fail('Packet too big');
-          need = { flags, size };
+          need = { flags, aux, size };
           buf = buf.subarray(12);
         }
         if (buf.length < need.size) return;
         const data = Buffer.from(buf.subarray(0, need.size));
         buf = buf.subarray(need.size);
-        const { flags } = need;
+        const { flags, aux } = need;
         need = null;
-        if (data.length) {
+        if (data.length && (flags & 0x10000000)) {
+          // Sound: 16-bit little-endian interleaved PCM; aux = (sample rate << 8) | channels.
+          this.events.onPacket(id, { audio: true, rate: aux >>> 8, channels: aux & 0xff, data });
+        } else if (data.length) {
           this.events.onPacket(id, { config: (flags & 0x80000000) !== 0, key: (flags & 0x40000000) !== 0, data });
         }
       }

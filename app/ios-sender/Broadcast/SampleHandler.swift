@@ -38,6 +38,11 @@ final class SampleHandler: RPBroadcastSampleHandler {
                 self.offer(conn, wifiAddress: ip)
             } else if self.usbListener == nil {
                 self.stop("Open MirrorDesk Sender and type the screen code shown on the computer.")
+            } else {
+                self.queue.asyncAfter(deadline: .now() + 15) { [weak self] in
+                    guard let self = self, self.connection == nil else { return }
+                    self.stop("No USB connection, and no screen code reached the broadcast. Plug in the USB cable, or type the code in MirrorDesk Sender.")
+                }
             }
         }
     }
@@ -97,8 +102,11 @@ final class SampleHandler: RPBroadcastSampleHandler {
     }
 
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        guard sampleBufferType == .video else { return } // phone sound is not sent in this version
-        queue.async { self.encode(sampleBuffer) }
+        switch sampleBufferType {
+        case .video: queue.async { self.encode(sampleBuffer) }
+        case .audioApp: queue.async { self.sendAudio(sampleBuffer) } // phone sound; the microphone is not sent
+        default: break
+        }
     }
 
     private func stop(_ message: String) {
@@ -249,6 +257,84 @@ final class SampleHandler: RPBroadcastSampleHandler {
             raw.storeBytes(of: UInt32(payload.count).bigEndian, toByteOffset: 8, as: UInt32.self)
         }
         let packet = header + payload
+        queuedBytes += packet.count
+        conn.send(content: packet, completion: .contentProcessed { [weak self] _ in
+            self?.queue.async { self?.queuedBytes -= packet.count }
+        })
+    }
+
+    // MARK: sound
+
+    /// Sends app sound as 16-bit little-endian interleaved PCM. Header flags bit 28 marks sound;
+    /// the second header word is (sample rate << 8) | channel count (see src/ios.js).
+    private func sendAudio(_ sample: CMSampleBuffer) {
+        guard welcomed, let conn = connection, queuedBytes <= maxQueuedBytes,
+              let format = CMSampleBufferGetFormatDescription(sample),
+              let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee,
+              asbd.mFormatID == kAudioFormatLinearPCM else { return }
+        let frames = CMSampleBufferGetNumSamples(sample)
+        let channels = Int(asbd.mChannelsPerFrame)
+        let bits = Int(asbd.mBitsPerChannel)
+        let isFloat = asbd.mFormatFlags & kAudioFormatFlagIsFloat != 0
+        let bigEndian = asbd.mFormatFlags & kAudioFormatFlagIsBigEndian != 0
+        let nonInterleaved = asbd.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
+        guard frames > 0, channels > 0, channels <= 8,
+              (isFloat && bits == 32) || (!isFloat && (bits == 16 || bits == 32)) else { return }
+
+        var listSize = 0
+        CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(sample, bufferListSizeNeededOut: &listSize, bufferListOut: nil,
+                                                                bufferListSize: 0, blockBufferAllocator: nil,
+                                                                blockBufferMemoryAllocator: nil, flags: 0, blockBufferOut: nil)
+        guard listSize > 0 else { return }
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: listSize, alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { raw.deallocate() }
+        let list = raw.bindMemory(to: AudioBufferList.self, capacity: 1)
+        var block: CMBlockBuffer?
+        guard CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(sample, bufferListSizeNeededOut: nil, bufferListOut: list,
+                                                                      bufferListSize: listSize, blockBufferAllocator: nil,
+                                                                      blockBufferMemoryAllocator: nil,
+                                                                      flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
+                                                                      blockBufferOut: &block) == noErr else { return }
+        let buffers = UnsafeMutableAudioBufferListPointer(list)
+        let bytesPer = bits / 8
+
+        var pcm = Data(count: frames * channels * 2)
+        pcm.withUnsafeMutableBytes { (out: UnsafeMutableRawBufferPointer) in
+            for f in 0..<frames {
+                for c in 0..<channels {
+                    let index = nonInterleaved ? c : 0
+                    let offset = nonInterleaved ? f * bytesPer : (f * channels + c) * bytesPer
+                    guard index < buffers.count, let base = buffers[index].mData,
+                          offset + bytesPer <= Int(buffers[index].mDataByteSize) else { continue }
+                    let p = base.advanced(by: offset)
+                    var value: Int16
+                    if bits == 16 {
+                        var u: UInt16 = 0
+                        memcpy(&u, p, 2)
+                        value = Int16(bitPattern: bigEndian ? u.byteSwapped : u)
+                    } else {
+                        var u: UInt32 = 0
+                        memcpy(&u, p, 4)
+                        if bigEndian { u = u.byteSwapped }
+                        if isFloat {
+                            value = Int16(max(-1, min(1, Float(bitPattern: u))) * 32767)
+                        } else {
+                            value = Int16(truncatingIfNeeded: Int32(bitPattern: u) >> 16)
+                        }
+                    }
+                    out.storeBytes(of: value.littleEndian, toByteOffset: (f * channels + c) * 2, as: Int16.self)
+                }
+            }
+        }
+
+        var header = Data(count: 12)
+        let aux = UInt32(asbd.mSampleRate) << 8 | UInt32(channels)
+        header.withUnsafeMutableBytes { raw in
+            raw.storeBytes(of: UInt32(0x1000_0000).bigEndian, toByteOffset: 0, as: UInt32.self)
+            raw.storeBytes(of: aux.bigEndian, toByteOffset: 4, as: UInt32.self)
+            raw.storeBytes(of: UInt32(pcm.count).bigEndian, toByteOffset: 8, as: UInt32.self)
+        }
+        let packet = header + pcm
         queuedBytes += packet.count
         conn.send(content: packet, completion: .contentProcessed { [weak self] _ in
             self?.queue.async { self?.queuedBytes -= packet.count }

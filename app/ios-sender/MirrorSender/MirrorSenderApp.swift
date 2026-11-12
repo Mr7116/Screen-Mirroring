@@ -1,5 +1,6 @@
 import SwiftUI
 import ReplayKit
+import Network
 
 @main
 struct MirrorSenderApp: App {
@@ -40,7 +41,8 @@ struct ContentView: View {
             .navigationTitle("MirrorDesk Sender")
         }
         .navigationViewStyle(.stack)
-        .onChange(of: code) { SharedSettings.code = $0 }
+        .onAppear { LocalNetworkProbe.poke(code) }
+        .onChange(of: code) { SharedSettings.code = $0; LocalNetworkProbe.poke($0) }
         .onChange(of: name) { SharedSettings.name = $0 }
         .onChange(of: port) { SharedSettings.port = Int($0) ?? SharedSettings.defaultPort }
     }
@@ -48,6 +50,25 @@ struct ContentView: View {
     private var addressHint: String {
         if let ip = ScreenCode.ipAddress(from: code) { return "Sends to \(ip). Keep the iPhone on the same Wi-Fi." }
         return "Type the 4- or 8-character code from the iPhone tab of MirrorDesk."
+    }
+}
+
+/// iOS only lets the broadcast reach the computer over Wi-Fi after the app itself has asked for
+/// Local Network access, so the app makes one short connection to the computer when a code is typed.
+enum LocalNetworkProbe {
+    private static var current: NWConnection?
+
+    static func poke(_ code: String) {
+        guard let ip = ScreenCode.ipAddress(from: code),
+              let port = NWEndpoint.Port(rawValue: UInt16(SharedSettings.port)) else { return }
+        current?.cancel()
+        let conn = NWConnection(host: NWEndpoint.Host(ip), port: port, using: .tcp)
+        current = conn
+        conn.stateUpdateHandler = { state in
+            if case .ready = state { conn.cancel() }
+        }
+        conn.start(queue: .main)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { conn.cancel() }
     }
 }
 
