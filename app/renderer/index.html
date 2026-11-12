@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>MirrorDesk</title>
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect x="5" y="9" width="15" height="11" rx="2" fill="none" stroke="#fff" stroke-width="2.2"/><rect x="19" y="12" width="8" height="13" rx="1.8" fill="#fff"/><path d="M9 24h8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </span>
+      <span class="name">MirrorDesk</span>
+    </div>
+    <div class="tb-actions">
+      <button class="icon-btn" id="btnSettings" title="Settings"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button>
+      <button class="icon-btn" id="btnMenu" title="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <button class="icon-btn" id="btnMin" title="Minimise"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+      <button class="icon-btn" id="btnClose" title="Close"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg></button>
+    </div>
+    <div class="menu" id="menu" hidden>
+      <button data-act="output">Open output folder</button>
+      <button data-act="demo">Try the demo screen</button>
+      <button data-act="help">How to connect</button>
+      <button data-act="about">About</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="usb" role="tab">
+      <svg viewBox="0 0 24 24"><path d="M12 3v14M8 7l4-4 4 4M7 13v2a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-2"/><circle cx="12" cy="19.5" r="1.5"/></svg>USB
+    </button>
+    <button class="tab" data-tab="wifi" role="tab">
+      <svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2"/></svg>Wi-Fi
+    </button>
+    <button class="tab" data-tab="iphone" role="tab">
+      <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.5 5h3"/></svg>iPhone
+    </button>
+    <button class="tab" data-tab="files" role="tab">
+      <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M12 11v6M9 14l3 3 3-3"/></svg>Files
+    </button>
+  </nav>
+
+  <main id="content">
+    <!-- USB -->
+    <section class="panel active" id="tab-usb">
+      <div class="hero">
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-phone"><div class="art-screen"></div></div>
+          <div class="art-cable"></div>
+          <div class="art-pc"><div class="art-pc-screen"><div class="art-mini"></div></div><div class="art-stand"></div></div>
+        </div>
+        <h1>Mirror your Android phone</h1>
+        <p>Plug the phone in with a USB cable and allow USB debugging on the phone.</p>
+      </div>
+
+      <div class="card adb-card" id="adbCard">
+        <div class="row">
+          <span class="dot" id="adbDot"></span>
+          <div class="grow">
+            <div class="strong" id="adbTitle">Looking for Android tools…</div>
+            <div class="muted small" id="adbPath"></div>
+          </div>
+        </div>
+        <div class="row gap" id="adbActions" hidden>
+          <button class="btn primary sm" id="btnAdbDownload">Download tools</button>
+          <button class="btn sm" id="btnAdbBrowse">Find adb…</button>
+        </div>
+        <div class="progress" id="adbProgress" hidden><span></span></div>
+      </div>
+
+      <div class="list-head">
+        <span>Devices</span>
+        <button class="link" id="btnRefresh">Refresh</button>
+      </div>
+      <div id="deviceList" class="device-list">
+        <div class="empty">
+          <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>
+          <div>No phone found yet</div>
+          <div class="muted small">Connect a phone and tap “Allow” on its screen.</div>
+        </div>
+      </div>
+
+      <details class="help" id="usbHelp">
+        <summary>How to turn on USB debugging</summary>
+        <ol>
+          <li>Open <b>Settings → About phone</b> and tap <b>Build number</b> 7 times.</li>
+          <li>Go back to <b>Settings → System → Developer options</b>.</li>
+          <li>Turn on <b>USB debugging</b> (and <b>USB debugging (security settings)</b> on Xiaomi phones, so the mouse can control it).</li>
+          <li>Plug in the cable and tap <b>Allow</b> when the phone asks.</li>
+        </ol>
+      </details>
+    </section>
+
+    <!-- Wi-Fi -->
+    <section class="panel" id="tab-wifi">
+      <div class="card code-card">
+        <div class="muted small">Screen code of this computer</div>
+        <div class="screen-code" id="screenCode">----</div>
+        <div class="muted small" id="pcName"></div>
+        <div class="qr-wrap"><img id="qr" alt="QR code of the share page"><div class="qr-empty" id="qrEmpty">Starting…</div></div>
+        <div class="url" id="shareUrl"></div>
+        <p class="small">On a phone, tablet or computer on the <b>same Wi-Fi</b>: scan the code or open the address, accept the security notice once, type the screen code and press <b>Share screen</b>.</p>
+      </div>
+
+      <div class="card">
+        <div class="strong">Android over Wi-Fi (with control)</div>
+        <p class="small muted">Needs USB debugging. Type the phone's address, or the phone's screen code.</p>
+        <div class="row gap">
+          <input id="wifiHost" placeholder="192.168.1.23:5555" spellcheck="false">
+          <button class="btn primary sm" id="btnWifiConnect">Connect</button>
+        </div>
+        <details class="help inner">
+          <summary>Android 11 and newer: pair with a code</summary>
+          <p class="small">On the phone open <b>Developer options → Wireless debugging → Pair device with pairing code</b>.</p>
+          <div class="row gap">
+            <input id="pairHost" placeholder="IP:port" spellcheck="false">
+            <input id="pairCode" placeholder="Code" maxlength="6" class="short" spellcheck="false">
+            <button class="btn sm" id="btnPair">Pair</button>
+          </div>
+        </details>
+        <div class="small status" id="wifiStatus"></div>
+      </div>
+
+      <div class="list-head"><span>Sharing now</span></div>
+      <div id="senderList" class="device-list"><div class="empty small muted">Nobody is sharing to this computer.</div></div>
+    </section>
+
+    <!-- iPhone -->
+    <section class="panel" id="tab-iphone">
+      <div class="card">
+        <div class="strong">Mirror the iPhone or iPad screen</div>
+        <ol class="steps small">
+          <li>Install the <b>MirrorDesk Sender</b> app on the iPhone (see “How to get the iPhone app” below).</li>
+          <li>Put the iPhone on the <b>same Wi-Fi</b> as this computer.</li>
+          <li>Open the app, type the screen code <b class="code-inline" id="iosCode">----</b> and tap <b>Start Broadcast</b>.</li>
+        </ol>
+        <div class="muted small" id="iosAddr"></div>
+      </div>
+
+      <div class="list-head"><span>iPhones sharing now</span></div>
+      <div id="iosList" class="device-list"><div class="empty small muted">No iPhone is sharing yet.</div></div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="strong">No app? Share the iPhone camera</div>
+        <p class="small muted">Open this address in Safari on the iPhone, type the screen code and press <b>Share camera</b>. Files can be sent both ways on the same page.</p>
+        <div class="url" id="iosUrl"></div>
+      </div>
+
+      <div class="card">
+        <div class="strong">Control</div>
+        <p class="small muted">An iPhone does not let a computer tap or type on it, so the mouse can't control it. Screenshots, recording and the whiteboard all work on the iPhone picture.</p>
+      </div>
+
+      <details class="help">
+        <summary>How to get the iPhone app</summary>
+        <p class="small">The app's source is in the <b>ios-sender</b> folder of this program. It is built once on a Mac with Xcode (free Apple ID is enough for your own iPhone): open the folder, run <code>xcodegen</code>, open the project, choose your iPhone and press Run. Its README has the steps.</p>
+      </details>
+    </section>
+
+    <!-- Files -->
+    <section class="panel" id="tab-files">
+      <div class="card">
+        <div class="strong">Send files to a browser device</div>
+        <p class="small muted">Files added here appear on the share page of every connected browser. To send a file to an Android phone, drop it on its mirror window.</p>
+        <button class="btn primary sm" id="btnShareAdd">Add files…</button>
+        <div id="sharedList" class="file-list"></div>
+      </div>
+      <div class="card">
+        <div class="strong">Received files</div>
+        <p class="small muted">Files sent from the share page or copied from a phone land here.</p>
+        <div id="receivedList" class="file-list"><div class="muted small">Nothing received yet.</div></div>
+        <button class="btn sm" id="btnOpenReceived">Open folder</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <button class="btn ghost" id="btnDemo">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7Z"/></svg>Try the demo screen
+    </button>
+    <button class="btn ghost" id="btnOutput">
+      <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Recordings
+    </button>
+  </footer>
+
+  <!-- Settings panel -->
+  <div class="sheet" id="settingsSheet" hidden>
+    <div class="sheet-head">
+      <button class="icon-btn" id="btnSettingsBack" title="Back"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <span class="strong">Settings</span>
+    </div>
+    <div class="sheet-tabs">
+      <button class="chip active" data-sec="general">General</button>
+      <button class="chip" data-sec="display">Display</button>
+      <button class="chip" data-sec="capture">Capture</button>
+      <button class="chip" data-sec="hotkeys">Hotkeys</button>
+      <button class="chip" data-sec="control">Control</button>
+    </div>
+    <div class="sheet-body">
+      <section class="sec active" data-sec="general">
+        <label class="field"><span>Theme</span>
+          <select data-key="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        <label class="check"><input type="checkbox" data-key="topmost"> Keep windows on top</label>
+        <label class="check"><input type="checkbox" data-key="autoFullscreen"> Open mirror windows full screen</label>
+        <label class="field"><span>Android tools (adb)</span>
+          <div class="row gap"><input data-key="adbPath" placeholder="Found automatically" spellcheck="false"><button class="btn sm" id="btnAdbBrowse2">Find…</button></div></label>
+      </section>
+      <section class="sec" data-sec="display">
+        <label class="field"><span>Android picture size</span>
+          <select data-key="displaySize" data-num>
+            <option value="540">540 (fastest)</option>
+            <option value="720">720</option>
+            <option value="1080">1080</option>
+            <option value="1440">1440 (sharpest)</option>
+          </select></label>
+        <label class="field"><span>Android frame rate</span>
+          <select data-key="frameRate" data-num>
+            <option value="30">30 fps</option>
+            <option value="60">60 fps</option>
+          </select></label>
+        <label class="field"><span>Android control</span>
+          <select data-key="controlMode">
+            <option value="helper">Live (phone helper, real drag)</option>
+            <option value="basic">Basic (no helper download)</option>
+          </select></label>
+        <label class="field"><span>Android bit rate</span>
+          <select data-key="bitRate" data-num>
+            <option value="2000000">2 Mbit/s</option>
+            <option value="4000000">4 Mbit/s</option>
+            <option value="7581600">7.6 Mbit/s</option>
+            <option value="12000000">12 Mbit/s</option>
+            <option value="20000000">20 Mbit/s</option>
+          </select></label>
+        <label class="field"><span>Browser sender quality</span>
+          <select data-key="receiverQuality"><option>720P</option><option>1080P</option><option>2K</option></select></label>
+      </section>
+      <section class="sec" data-sec="capture">
+        <label class="field"><span>Output folder</span>
+          <div class="row gap"><input data-key="outputDir" readonly><button class="btn sm" id="btnPickFolder">Change…</button></div></label>
+        <label class="field"><span>Screenshot format</span>
+          <select data-key="imageFormat"><option>PNG</option><option>JPG</option></select></label>
+        <label class="field"><span>Save screenshots to</span>
+          <select data-key="imageTo"><option value="Computer">Computer</option><option value="Clipboard">Clipboard</option></select></label>
+        <label class="field"><span>Video format</span>
+          <select data-key="videoFormat"><option>MP4</option><option>WEBM</option></select></label>
+        <label class="field"><span>Video quality</span>
+          <select data-key="videoQuality"><option>High</option><option>Standard</option><option>Low</option></select></label>
+        <label class="field"><span>Record sound</span>
+          <select data-key="recAudio">
+            <option value="None">None</option>
+            <option value="SystemSound">Sound from the device</option>
+            <option value="Microphone">Microphone</option>
+            <option value="SysSoundAndMicrophone">Device sound and microphone</option>
+          </select></label>
+        <label class="check"><input type="checkbox" data-key="openFolderOnFinish"> Open the folder after recording</label>
+      </section>
+      <section class="sec" data-sec="hotkeys">
+        <label class="check"><input type="checkbox" data-key="hotkeysEnabled"> Use hotkeys</label>
+        <div id="hotkeyList" class="hotkeys"></div>
+        <button class="btn sm" id="btnResetHotkeys">Reset to defaults</button>
+      </section>
+      <section class="sec" data-sec="control">
+        <label class="field"><span>Mouse wheel scroll, up/down</span>
+          <input type="number" min="1" max="50" data-key="scrollFactorY" data-num></label>
+        <label class="field"><span>Mouse wheel scroll, sideways</span>
+          <input type="number" min="1" max="50" data-key="scrollFactorX" data-num></label>
+        <p class="small muted">Left click taps, drag swipes, hold for a long press, right click is Back. Typing goes to the phone (letters, numbers and symbols).</p>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal" id="modal" hidden><div class="modal-box"><div id="modalBody"></div><button class="btn primary sm" id="modalOk">OK</button></div></div>
+  <div class="toasts" id="toasts"></div>
+  <script src="hotkeys.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

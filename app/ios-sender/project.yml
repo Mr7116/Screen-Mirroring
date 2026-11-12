@@ -1,0 +1,51 @@
+# XcodeGen project for the iPhone sender. On a Mac:  brew install xcodegen && xcodegen
+# Change bundleIdPrefix (and the app group below) to your own before building.
+name: MirrorSender
+options:
+  bundleIdPrefix: com.7116.mirrordesk
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  MirrorSender:
+    type: application
+    platform: iOS
+    sources: [MirrorSender, Shared]
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: Broadcast
+    info:
+      path: MirrorSender/Info.plist
+      properties:
+        CFBundleDisplayName: MirrorDesk Sender
+        UILaunchScreen: {}
+        NSLocalNetworkUsageDescription: Sends the screen to MirrorDesk on your computer over Wi-Fi.
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    entitlements:
+      path: MirrorSender/MirrorSender.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.example.mirrordesk]
+  Broadcast:
+    type: app-extension
+    platform: iOS
+    sources: [Broadcast, Shared]
+    info:
+      path: Broadcast/Info.plist
+      properties:
+        CFBundleDisplayName: MirrorDesk Sender
+        NSLocalNetworkUsageDescription: Sends the screen to MirrorDesk on your computer over Wi-Fi.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
+          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
+    entitlements:
+      path: Broadcast/Broadcast.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.example.mirrordesk]

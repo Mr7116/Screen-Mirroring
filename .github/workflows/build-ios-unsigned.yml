@@ -1,0 +1,54 @@
+# Builds MirrorDesk Sender as an unsigned .ipa for sideloading (e.g. with Sideloadly).
+# No Apple Developer account is needed here; Sideloadly signs it with your Apple ID.
+name: Build iOS (unsigned IPA)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "app/ios-sender/**"
+      - ".github/workflows/build-ios-unsigned.yml"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app/ios-sender
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen
+
+      - name: Build (no code signing)
+        run: |
+          xcodebuild \
+            -project MirrorSender.xcodeproj \
+            -target MirrorSender \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Ad-hoc sign with entitlements (keeps the App Group for Sideloadly)
+        run: |
+          APP=build/Release-iphoneos/MirrorSender.app
+          codesign -f -s - --entitlements Broadcast/Broadcast.entitlements "$APP/PlugIns/Broadcast.appex"
+          codesign -f -s - --entitlements MirrorSender/MirrorSender.entitlements "$APP"
+
+      - name: Package .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/MirrorSender.app Payload/
+          zip -qry MirrorSender-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MirrorSender-unsigned-ipa
+          path: app/ios-sender/MirrorSender-unsigned.ipa
+          if-no-files-found: error

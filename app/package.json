@@ -1,0 +1,21 @@
+{
+  "name": "mirrordesk",
+  "productName": "MirrorDesk",
+  "version": "1.0.0",
+  "description": "Screen mirroring and remote control receiver for Android phones and browser senders",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/check.js",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^2.4.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0"
+  }
+}

@@ -1,0 +1,28 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #f5f7fa; color: #1f2d3d; font: 15px "Segoe UI", -apple-system, Roboto, Arial, sans-serif; }
+main { max-width: 520px; margin: 0 auto; padding: 18px 16px 40px; }
+header { display: flex; gap: 14px; align-items: center; margin: 6px 0 18px; }
+.logo { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(135deg, #22b5ff, #2f7bff); flex: none; }
+.logo svg { width: 34px; height: 34px; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.muted { color: #8592a3; }
+.small { font-size: 13px; }
+.card { background: #fff; border: 1px solid #e7ebf0; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(31,45,61,.05); }
+label { display: block; font-weight: 600; margin-bottom: 12px; }
+input:not([type=file]) { display: block; width: 100%; margin-top: 6px; border: 1px solid #dfe5ec; border-radius: 10px; padding: 10px 12px; font: inherit; outline: none; }
+#code { font-size: 22px; letter-spacing: .2em; text-transform: uppercase; font-weight: 700; color: #2f7bff; }
+input:focus { border-color: #2f7bff; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; font-weight: 600; border: 1px solid #dfe5ec; background: #fff; border-radius: 10px; padding: 11px 16px; cursor: pointer; }
+button.primary { background: #2f7bff; border-color: #2f7bff; color: #fff; flex: 1; }
+button.danger { background: #f2555a; border-color: #f2555a; color: #fff; flex: 1; }
+button:disabled { opacity: .5; }
+.small-btn { padding: 6px 12px; font-size: 13px; margin-top: 8px; }
+.status { min-height: 20px; margin: 12px 0 0; font-weight: 600; }
+.status.ok { color: #19b36b; }
+.status.bad { color: #d9434a; }
+.list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.item { display: flex; justify-content: space-between; gap: 10px; background: #f5f7fa; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item a { color: #2f7bff; font-weight: 600; text-decoration: none; }
