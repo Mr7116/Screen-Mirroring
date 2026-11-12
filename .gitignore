@@ -1,5 +1,6 @@
 # --- Node / Electron (app) ---
 node_modules/
+app/vendor/
 npm-debug.log*
 dist/
 out/

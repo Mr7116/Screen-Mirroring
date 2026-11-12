@@ -17,7 +17,11 @@ jobs:
   ios:
     uses: ./.github/workflows/build-ios-unsigned.yml
 
+  uxplay:
+    uses: ./.github/workflows/build-uxplay-windows.yml
+
   windows:
+    needs: uxplay
     runs-on: windows-latest
     defaults:
       run:
@@ -31,6 +35,12 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Get the AirPlay receiver (UxPlay)
+        uses: actions/download-artifact@v4
+        with:
+          name: uxplay-windows
+          path: app/vendor/uxplay
 
       - name: Set version
         run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
@@ -55,6 +65,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: out
+          pattern: Mirror* # the installer and the .ipa (UxPlay is already inside the installer)
           merge-multiple: true
 
       - name: Create release

@@ -30,6 +30,15 @@
       "renderer/**",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "vendor/uxplay",
+        "to": "uxplay",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "directories": {
       "output": "dist"
     },

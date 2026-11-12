@@ -1,0 +1,94 @@
+# Builds UxPlay (open-source AirPlay mirror receiver, GPL-3: https://github.com/FDH2/UxPlay) for
+# Windows and bundles it with the GStreamer pieces it needs, so MirrorDesk can ship it.
+# Pinned to a 1.74 commit: it has its own mDNS code, so no Apple Bonjour SDK is needed to build.
+name: Build UxPlay (Windows)
+
+on:
+  workflow_dispatch:
+  workflow_call: # used by release.yml
+
+env:
+  UXPLAY_COMMIT: 05b0275cb1b726592700e47a6e0307544b3d3a52
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-openssl
+            mingw-w64-ucrt-x86_64-libplist
+            mingw-w64-ucrt-x86_64-gstreamer
+            mingw-w64-ucrt-x86_64-gst-plugins-base
+            mingw-w64-ucrt-x86_64-gst-plugins-good
+            mingw-w64-ucrt-x86_64-gst-plugins-bad
+            mingw-w64-ucrt-x86_64-gst-libav
+
+      - name: Build uxplay.exe
+        run: |
+          git clone https://github.com/FDH2/UxPlay uxplay-src
+          cd uxplay-src
+          git checkout "$UXPLAY_COMMIT"
+          mkdir build && cd build
+          cmake -G Ninja ..
+          ninja
+          ls -l uxplay.exe
+
+      - name: Bundle uxplay.exe with its DLLs and GStreamer plugins
+        run: |
+          B="$GITHUB_WORKSPACE/uxplay-bundle"
+          mkdir -p "$B/bin" "$B/lib/gstreamer-1.0" "$B/libexec/gstreamer-1.0"
+          cp uxplay-src/build/uxplay.exe /ucrt64/bin/gst-inspect-1.0.exe "$B/bin/"
+          cp /ucrt64/libexec/gstreamer-1.0/gst-plugin-scanner.exe "$B/libexec/gstreamer-1.0/"
+          cp uxplay-src/LICENSE "$B/UXPLAY-LICENSE.txt"
+          echo "UxPlay https://github.com/FDH2/UxPlay commit $UXPLAY_COMMIT (GPL-3.0)" > "$B/UXPLAY-SOURCE.txt"
+          # Only the plugins UxPlay's pipelines use (decode, parse, flip, show, sound, RTP for later use).
+          for p in coreelements typefindfunctions playback app autodetect videoparsersbad libav \
+                   videoconvertscale videoconvert videoscale videofilter d3d11 d3d12 directsound \
+                   wasapi wasapi2 audioconvert audioresample volume audioparsers rtp rtpmanager udp imagefreeze; do
+            f="/ucrt64/lib/gstreamer-1.0/libgst$p.dll"
+            if [ -f "$f" ]; then cp "$f" "$B/lib/gstreamer-1.0/"; else echo "(no plugin $p in this GStreamer)"; fi
+          done
+          # Every DLL these need from MSYS2 (ldd lists the whole tree).
+          for f in "$B"/bin/*.exe "$B"/libexec/gstreamer-1.0/*.exe "$B"/lib/gstreamer-1.0/*.dll; do
+            ldd "$f" | awk '{print $3}' | grep -i '^/ucrt64/bin/' || true
+          done | sort -u | while read -r d; do cp -n "$d" "$B/bin/"; done
+          du -sh "$B"; ls "$B/bin" | wc -l; ls "$B/lib/gstreamer-1.0"
+
+      - name: Check the bundle works on its own
+        run: |
+          B="$GITHUB_WORKSPACE/uxplay-bundle"
+          export PATH="$B/bin:/c/Windows/System32:/c/Windows"
+          export GST_PLUGIN_SYSTEM_PATH_1_0="" GST_PLUGIN_SYSTEM_PATH=""
+          export GST_PLUGIN_PATH_1_0="$(cygpath -w "$B/lib/gstreamer-1.0")" GST_PLUGIN_PATH="$(cygpath -w "$B/lib/gstreamer-1.0")"
+          export GST_PLUGIN_SCANNER_1_0="$(cygpath -w "$B/libexec/gstreamer-1.0/gst-plugin-scanner.exe")"
+          export GST_REGISTRY_1_0="$(cygpath -w "$RUNNER_TEMP/gst-registry.bin")"
+          fail=0
+          for e in appsrc queue h264parse decodebin avdec_h264 avdec_aac aacparse videoconvert videoscale \
+                   videoflip autovideosink autoaudiosink audioconvert audioresample volume rtph264pay udpsink; do
+            if gst-inspect-1.0.exe "$e" > /dev/null 2>&1; then echo "ok      $e"; else echo "MISSING $e"; fail=1; fi
+          done
+          for e in d3d11videosink d3d12videosink wasapisink; do # need a GPU/sound device; report only
+            gst-inspect-1.0.exe "$e" > /dev/null 2>&1 && echo "ok      $e" || echo "(n/a)   $e"
+          done
+          uxplay.exe -h > help.txt 2>&1 || true
+          head -5 help.txt
+          grep -q "UxPlay" help.txt || { echo "uxplay.exe did not start"; fail=1; }
+          exit $fail
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uxplay-windows
+          path: uxplay-bundle
+          if-no-files-found: error

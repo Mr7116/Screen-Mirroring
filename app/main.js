@@ -10,6 +10,7 @@ const { HelperSession } = require('./src/helper');
 const { IosServer } = require('./src/ios');
 const { UsbMux } = require('./src/usbmux');
 const { IosDialer } = require('./src/iosdial');
+const { AirPlay } = require('./src/airplay');
 
 // ---- --screenshot <file.png> -------------------------------------------------------------
 const argv = process.argv.slice(1);
@@ -25,7 +26,7 @@ if (screenshotPath) {
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 }
 
-let settings, adb, lan, ios, usbmux, iosDialer;
+let settings, adb, lan, ios, usbmux, iosDialer, airplay;
 const iosSenders = new Map(); // id -> { name, width, height }
 let mainWin = null;
 const mirrors = new Map(); // webContents.id -> { win, kind, serial, senderId, stream, title }
@@ -482,11 +483,13 @@ app.whenReady().then(async () => {
   });
   usbmux = new UsbMux({ onSocket: (sock) => ios.adopt(sock) });
   iosDialer = new IosDialer({ onSocket: (sock) => ios.adopt(sock) });
+  airplay = new AirPlay({ appDir: ROOT, dataDir: app.getPath('userData'), onStatus: (t) => console.log('[airplay]', t) });
   registerIpc();
   if (!screenshotPath) {
     await lan.start(settings.get('lanPort'));
     await ios.start(settings.get('lanPort') + 1);
     usbmux.start();
+    airplay.start(); // iPhone Screen Mirroring (AirPlay) through UxPlay, Windows only
   }
   createMainWindow();
 });
@@ -499,6 +502,7 @@ app.on('before-quit', () => {
   if (ios) ios.stop();
   if (usbmux) usbmux.stop();
   if (iosDialer) iosDialer.stop();
+  if (airplay) airplay.stop();
 });
 
 function sendIosList() {
