@@ -56,7 +56,8 @@ jobs:
           # Only the plugins UxPlay's pipelines use (decode, parse, flip, show, sound, RTP for later use).
           for p in coreelements typefindfunctions playback app autodetect videoparsersbad libav \
                    videoconvertscale videoconvert videoscale videofilter d3d11 d3d12 directsound \
-                   wasapi wasapi2 audioconvert audioresample volume audioparsers rtp rtpmanager udp imagefreeze; do
+                   wasapi wasapi2 audioconvert audioresample volume level audioparsers rtp rtpmanager udp \
+                   imagefreeze jpeg pango; do
             f="/ucrt64/lib/gstreamer-1.0/libgst$p.dll"
             if [ -f "$f" ]; then cp "$f" "$B/lib/gstreamer-1.0/"; else echo "(no plugin $p in this GStreamer)"; fi
           done
@@ -80,8 +81,9 @@ jobs:
           export GST_PLUGIN_SCANNER_1_0="$SCANNER"
           export GST_REGISTRY_1_0="$REGISTRY"
           fail=0
-          for e in appsrc queue h264parse decodebin avdec_h264 avdec_aac aacparse videoconvert videoscale \
-                   videoflip autovideosink autoaudiosink audioconvert audioresample volume rtph264pay udpsink; do
+          for e in appsrc queue h264parse decodebin avdec_h264 avdec_aac avdec_alac aacparse videoconvert videoscale \
+                   videoflip autovideosink autoaudiosink audioconvert audioresample volume level rtph264pay udpsink \
+                   imagefreeze jpegdec textoverlay; do
             if gst-inspect-1.0.exe "$e" > /dev/null 2>&1; then echo "ok      $e"; else echo "MISSING $e"; fail=1; fi
           done
           for e in d3d11videosink d3d12videosink wasapisink; do # need a GPU/sound device; report only
