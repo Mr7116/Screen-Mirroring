@@ -69,11 +69,16 @@ jobs:
       - name: Check the bundle works on its own
         run: |
           B="$GITHUB_WORKSPACE/uxplay-bundle"
-          export PATH="$B/bin:/c/Windows/System32:/c/Windows"
+          # Windows paths first (cygpath lives in /usr/bin).
+          PLUGINS="$(cygpath -w "$B/lib/gstreamer-1.0")"
+          SCANNER="$(cygpath -w "$B/libexec/gstreamer-1.0/gst-plugin-scanner.exe")"
+          REGISTRY="$(cygpath -w "$RUNNER_TEMP/gst-registry.bin")"
+          # Bundle DLLs first, no /ucrt64/bin; /usr/bin last only for shell tools (head, grep).
+          export PATH="$B/bin:/c/Windows/System32:/c/Windows:/usr/bin"
           export GST_PLUGIN_SYSTEM_PATH_1_0="" GST_PLUGIN_SYSTEM_PATH=""
-          export GST_PLUGIN_PATH_1_0="$(cygpath -w "$B/lib/gstreamer-1.0")" GST_PLUGIN_PATH="$(cygpath -w "$B/lib/gstreamer-1.0")"
-          export GST_PLUGIN_SCANNER_1_0="$(cygpath -w "$B/libexec/gstreamer-1.0/gst-plugin-scanner.exe")"
-          export GST_REGISTRY_1_0="$(cygpath -w "$RUNNER_TEMP/gst-registry.bin")"
+          export GST_PLUGIN_PATH_1_0="$PLUGINS" GST_PLUGIN_PATH="$PLUGINS"
+          export GST_PLUGIN_SCANNER_1_0="$SCANNER"
+          export GST_REGISTRY_1_0="$REGISTRY"
           fail=0
           for e in appsrc queue h264parse decodebin avdec_h264 avdec_aac aacparse videoconvert videoscale \
                    videoflip autovideosink autoaudiosink audioconvert audioresample volume rtph264pay udpsink; do
